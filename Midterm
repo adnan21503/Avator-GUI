@@ -1,0 +1,212 @@
+#include <iostream>
+#include <vector>
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
+
+class CDomino {
+public:
+    int left, right;
+    CDomino(int l = 0, int r = 0) : left(l), right(r) {}
+   
+    void display() const {
+        std::cout << "[" << left << "|" << right << "]";
+    }
+};
+
+class CRandom {
+public:
+    void shuffle(std::vector<CDomino>& pieces) {
+        std::srand(unsigned(std::time(0)));
+        std::random_shuffle(pieces.begin(), pieces.end());
+    }
+};
+
+class CTable {
+    std::vector<CDomino> train;
+public:
+    void add_to_train(const CDomino& piece) {
+        train.push_back(piece);
+    }
+
+    void display_train() const {
+        std::cout << "\nTrain display on table:" << std::endl;
+        int count = 0;
+        for (const auto& piece : train) {
+            piece.display();
+            std::cout << " ";
+            count++;
+            if (count % 7 == 0) {
+                std::cout << std::endl;
+            }
+        }
+        std::cout << std::endl;
+    }
+
+    bool is_winner(const std::vector<CDomino>& hand) const {
+        return hand.empty();
+    }
+
+    const std::vector<CDomino>& get_train() const {
+        return train;
+    }
+};
+
+class CDominoes {
+    std::vector<CDomino> pieces;
+public:
+    CDominoes() {
+        for (int i = 0; i <= 6; i++) {
+            for (int j = i; j <= 6; j++) {
+                pieces.push_back(CDomino(i, j));
+            }
+        }
+    }
+
+    std::vector<CDomino>& get_pieces() {
+        return pieces;
+    }
+
+    void display_all_pieces() const {
+        for (const auto& piece : pieces) {
+            piece.display();
+            std::cout << " ";
+        }
+        std::cout << std::endl;
+    }
+};
+
+class CPlayer {
+    std::vector<CDomino> hand;
+public:
+    void draw_piece(CDominoes& dominoes) {
+        if (!dominoes.get_pieces().empty()) {
+            hand.push_back(dominoes.get_pieces().back());
+            dominoes.get_pieces().pop_back();
+        }
+    }
+
+    void display_hand() const {
+        for (const auto& piece : hand) {
+            piece.display();
+            std::cout << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    int get_hand_size() const {
+        return hand.size();
+    }
+
+    CDomino play_piece(int index) {
+        if (index >= 0 && index < hand.size()) {
+            CDomino piece = hand[index];
+            hand.erase(hand.begin() + index);
+            return piece;
+        }
+        return CDomino(-1, -1);
+    }
+   
+    bool can_play(const CTable& table) const {
+        if (hand.empty()) return false;
+        const auto& train = table.get_train();
+        for (const auto& piece : hand) {
+            if (piece.left == train.front().left || piece.right == train.back().right) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    const std::vector<CDomino>& get_hand() const {
+        return hand;
+    }
+};
+
+bool ask_yes_no(const std::string& question) {
+    char response;
+    std::cout << question << " (y/n): ";
+    std::cin >> response;
+    return response == 'y' || response == 'Y';
+}
+
+void run_game() {
+    CDominoes dominoes;
+    CRandom randomizer;
+    randomizer.shuffle(dominoes.get_pieces());
+
+    CTable table;
+
+    CPlayer player1, player2;
+    for (int i = 0; i < 7; i++) {
+        player1.draw_piece(dominoes);
+        player2.draw_piece(dominoes);
+    }
+
+    std::cout << "All pieces on the table (shuffled):" << std::endl;
+    dominoes.display_all_pieces();
+
+    std::cout << "\nDetermining who goes first..." << std::endl;
+    bool isPlayer1Turn = std::rand() % 2 == 0;
+    if (isPlayer1Turn) {
+        std::cout << "Player 1 goes first!" << std::endl;
+    } else {
+        std::cout << "Player 2 goes first!" << std::endl;
+    }
+
+    CDomino first_piece = player1.play_piece(0);
+    table.add_to_train(first_piece);
+    table.display_train();
+
+    const int maxDraws = 3;
+    while (true) {
+        CPlayer& currentPlayer = isPlayer1Turn ? player1 : player2;
+
+        std::cout << "\nCurrent Player's hand:" << std::endl;
+        currentPlayer.display_hand();
+
+        int draws = 0;
+
+        while (!currentPlayer.can_play(table)) {
+            if (draws >= maxDraws) {
+                std::cout << "You have reached the draw limit and must pass your turn." << std::endl;
+                break;
+            }
+
+            std::cout << "You cannot play. Would you like to draw a piece?" << std::endl;
+            if (ask_yes_no("Draw a piece")) {
+                currentPlayer.draw_piece(dominoes);
+                draws++;
+            } else {
+                std::cout << "You have passed your turn." << std::endl;
+                break;
+            }
+        }
+
+        if (currentPlayer.can_play(table)) {
+            std::cout << "You can play. Choose a piece to play (index): ";
+            int index;
+            std::cin >> index;
+            CDomino played_piece = currentPlayer.play_piece(index);
+            table.add_to_train(played_piece);
+            table.display_train();
+
+            if (table.is_winner(currentPlayer.get_hand())) {
+                std::cout << "Congratulations! You have won the game!" << std::endl;
+                return;
+            }
+        }
+
+        if (!player1.can_play(table) && !player2.can_play(table)) {
+            std::cout << "Both players cannot play. The game ends in a draw." << std::endl;
+            return;
+        }
+
+        isPlayer1Turn = !isPlayer1Turn;
+    }
+}
+
+int main() {
+    run_game();
+    return 0;
+}
